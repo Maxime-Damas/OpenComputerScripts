@@ -34,6 +34,12 @@ local function shiftLeftTwice()
   robot.turnRight()
 end
 
+local function prepare()
+  robot.forward(2)
+  moveRight()
+
+prepare()
+
 local function buildLayer(isMiddleLayer)
   for row = 1, 3 do
     for col = 1, 3 do
