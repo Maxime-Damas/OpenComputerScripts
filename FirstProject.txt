@@ -1,0 +1,58 @@
+local robot = require("robot")
+
+
+local function moveRight()
+  robot.turnRight()
+  robot.forward()
+  robot.turnLeft()
+end
+
+local function moveLeft()
+  robot.turnLeft()
+  robot.forward()
+  robot.turnRight()
+end
+
+
+robot.select(1)
+robot.place()
+moveRight()
+robot.place()
+moveRight()
+robot.place()
+
+-- Move up to the middle layer
+robot.up()
+
+
+robot.place() -- Right Obsidian
+moveLeft()
+
+robot.select(2)
+robot.place() -- Center Gold Block
+moveLeft()
+
+robot.select(1)
+robot.place() -- Left Obsidian
+
+-- Move up to the top layer
+robot.up()
+
+
+robot.place() -- Left Obsidian
+moveRight()
+robot.place() -- Middle Obsidian
+moveRight()
+robot.place() -- Right Obsidian
+
+
+moveLeft()   -- Now at top-center
+robot.down() 
+robot.down() -- Now at bottom-center
+
+
+robot.back()
+
+
+robot.select(3)
+robot.drop()
