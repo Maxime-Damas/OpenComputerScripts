@@ -1,0 +1,15 @@
+local component = require("component")
+local modem = component.modem
+local port = 1234
+
+-- Grab the command line arguments (e.g., "start" or "stop")
+local args = {...}
+local command = args[1]
+
+if command == "start" or command == "stop" then
+  -- Broadcast the command to any listening robots within wireless range
+  modem.broadcast(port, command)
+  print("Broadcasted '" .. command .. "' signal on port " .. port)
+else
+  print("Usage: remote start | remote stop")
+end

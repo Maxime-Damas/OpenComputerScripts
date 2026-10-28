@@ -1,0 +1,186 @@
+local robot = require("robot")
+local start = true
+
+-- =========================================
+-- HELPER FUNCTIONS
+-- =========================================
+local function moveRight()
+  robot.turnRight()
+  robot.forward()
+  robot.turnLeft()
+end
+
+local function moveLeft()
+  robot.turnLeft()
+  robot.forward()
+  robot.turnRight()
+end
+
+local function turnAround()
+  robot.turnRight()
+  robot.turnRight()
+end
+
+-- Shifts left to start the next column (building right to left)
+local function shiftLeft()
+  robot.turnLeft()
+  robot.forward()
+  robot.turnRight()
+end
+
+-- Returns to the starting column of the layer (the right side)
+local function shiftRightTwice()
+  robot.turnRight()
+  robot.forward()
+  robot.forward()
+  robot.turnLeft()
+end
+
+-- =========================================
+-- LOOTING PHASE (WITH VERIFICATION)
+-- =========================================
+
+-- Helper function to ensure we get exact amounts
+local function suckExact(slot, targetAmount)
+  robot.select(slot)
+  
+  -- Loop until the slot has exactly the target amount
+  while robot.count(slot) < targetAmount do
+    -- Calculate how many we still need
+    local missing = targetAmount - robot.count(slot)
+    
+    -- Try to suck only the missing amount
+    robot.suck(missing)
+    
+    -- If we still don't have enough, wait and alert the player
+    if robot.count(slot) < targetAmount then
+      print("Missing items! Need " .. (targetAmount - robot.count(slot)) .. " more in slot " .. slot)
+      print("Refill the chest. Trying again in 3 seconds...")
+      os.sleep(3) -- Pauses the script for 3 seconds so it doesn't spam the server
+    end
+  end
+  
+  print("Slot " .. slot .. " ready with " .. targetAmount .. " items.")
+end
+
+local function loot()
+  print("Looting Chest 1 (Obsidian)...")
+  suckExact(1, 26) 
+  
+  moveRight()
+  
+  print("Looting Chest 2 (Gold Block)...")
+  suckExact(2, 1)  
+  
+  moveRight()
+  
+  print("Looting Chest 3 (Ender Pearl)...")
+  suckExact(3, 1)  
+end
+
+-- =========================================
+-- BUILDING PHASE
+-- =========================================
+local function buildLayer(isMiddleLayer)
+  for row = 1, 3 do
+    for col = 1, 3 do
+      -- The exact center gets the Gold Block
+      if isMiddleLayer and row == 2 and col == 2 then
+        robot.select(2)
+      else
+        robot.select(1)
+      end
+      
+      robot.placeDown()
+      
+      if col < 3 then
+        robot.forward()
+      end
+    end
+    
+    robot.back()
+    robot.back()
+    
+    if row < 3 then
+      shiftLeft()
+    end
+  end
+  
+  shiftRightTwice()
+end
+
+-- =========================================
+-- MAIN EXECUTION SEQUENCE
+-- =========================================
+local event = require("event")
+local component = require("component")
+local modem = component.modem
+
+local port = 1234
+modem.open(port) -- Open the port to listen for remote commands
+
+local isRunning = false
+
+print("Robot online. Waiting for 'start' signal on port " .. port)
+
+while true do
+  -- If running, check quickly (timeout 0). If stopped, wait forever (math.huge).
+  local timeout = isRunning and 0 or math.huge
+  
+  -- Pull network messages from the event queue
+  local _, _, _, _, _, message = event.pull(timeout, "modem_message")
+  
+  if message == "start" then
+    isRunning = true
+    print("Received START signal. Beginning loop!")
+  elseif message == "stop" then
+    isRunning = false
+    print("Received STOP signal. Pausing at base.")
+  end
+
+  -- If the loop is active, execute one full build cycle
+  if isRunning then
+    print("Starting new build cycle...")
+    
+    -- 1. Gather all materials
+    loot()
+
+    -- 2. Turn around and move to the footprint
+    turnAround()
+    robot.forward()
+
+    -- 3. Hover over the bottom-right block
+    robot.up()
+    robot.forward()
+
+    -- 4. Build the 3 layers
+    buildLayer(false) -- Bottom layer
+    robot.up()
+    buildLayer(true)  -- Middle layer
+    robot.up()
+    buildLayer(false) -- Top layer
+
+    -- 5. Move to center middle, one block away
+    robot.back()
+    robot.back() 
+    shiftLeft()  
+    robot.down() 
+
+    -- Throw the pearl directly at the center of the wall
+    robot.select(3)
+    robot.drop() 
+
+    -- 6. Return exactly to the starting position facing Chest 1
+    robot.down()
+    robot.down()
+    robot.turnRight()
+    robot.forward()
+    robot.forward()
+    robot.forward()
+    robot.turnRight()
+    
+    print("Cycle complete. Checking for stop signals...")
+
+    os.sleep(8)
+  end
+end
